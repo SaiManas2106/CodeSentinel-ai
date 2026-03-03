@@ -1,0 +1,37 @@
+backend:
+  image:
+    repository: ghcr.io/example/codesentinel/backend
+    tag: latest
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+frontend:
+  image:
+    repository: ghcr.io/example/codesentinel/frontend
+    tag: latest
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 800m
+      memory: 768Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: codesentinel.example.com
+  tlsSecret: codesentinel-tls
+
+hpa:
+  backend:
+    minReplicas: 2
+    maxReplicas: 10
+    cpuTargetUtilization: 70

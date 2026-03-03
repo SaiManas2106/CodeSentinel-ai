@@ -1,0 +1,50 @@
+apiVersion: v2
+name: codesentinel
+description: Helm chart for CodeSentinel AI
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+      "type": "timeseries",
+      "title": "Request Rate",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{"expr": "sum(rate(http_requests_total[1m]))", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error Rate",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency P95",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Active Reviews",
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
+      "targets": [{"expr": "codesentinel_active_reviews", "refId": "A"}]
+    },
+    {
+      "type": "histogram",
+      "title": "Review Score Distribution",
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
+      "targets": [{"expr": "codesentinel_review_scores_bucket", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka Consumer Lag",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{"expr": "kafka_consumergroup_lag_sum", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Database Connections",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{"expr": "pg_stat_activity_count", "refId": "A"}]
+    }
+  ]
+}

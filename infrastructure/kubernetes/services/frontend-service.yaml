@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: codesentinel-frontend
+  namespace: codesentinel
+spec:
+  type: ClusterIP
+  selector:
+    app: codesentinel-frontend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+
+          severity: warning
+        annotations:
+          summary: "High latency"
+          description: "p95 latency is above 2 seconds"
+
+      - alert: ReviewProcessingFailed
+        expr: increase(codesentinel_review_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Review failures spike"
+          description: "More than 10 reviews failed in 5 minutes"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service down"
+          description: "A monitored service is unreachable"
+
+      - alert: HighMemoryUsage
+        expr: (container_memory_working_set_bytes / container_spec_memory_limit_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Container memory usage exceeded 85%"

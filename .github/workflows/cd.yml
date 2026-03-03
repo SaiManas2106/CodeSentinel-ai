@@ -1,0 +1,61 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-1
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform apply
+        working-directory: infrastructure/terraform/envs/prod
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+  deploy-eks:
+    needs: terraform-apply
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Configure kubectl
+        run: aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region us-east-1
+      - name: Helm upgrade
+        run: helm upgrade --install codesentinel infrastructure/helm/codesentinel -n codesentinel --create-namespace
+
+  smoke-tests:
+    needs: deploy-eks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check
+        run: curl -f https://${{ secrets.APP_HOST }}/health
+
+  notify:
+    needs: [terraform-apply, deploy-eks, smoke-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "text": "CodeSentinel deployment status: ${{ job.status }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
