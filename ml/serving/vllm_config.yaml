@@ -1,0 +1,12 @@
+model: ./artifacts/codellama-lora/merged
+served-model-name: codesentinel-codellama
+host: 0.0.0.0
+port: 8081
+gpu-memory-utilization: 0.9
+max-model-len: 8192
+max-num-batched-tokens: 16384
+max-num-seqs: 64
+dtype: bfloat16
+trust-remote-code: true
+enable-prefix-caching: true
+disable-log-stats: false
