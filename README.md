@@ -1,7 +1,6 @@
 # CodeSentinel AI
 
-![Build](https://img.shields.io/github/actions/workflow/status/example/codesentinel/ci.yml?label=build)
-![Coverage](https://img.shields.io/codecov/c/github/example/codesentinel)
+
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED)
