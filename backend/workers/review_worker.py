@@ -15,7 +15,6 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 
 from backend.agents.orchestrator import ReviewOrchestrator
-from backend.api.models.pull_request import PullRequest
 from backend.api.models.review import Review, ReviewStatus
 from backend.core.config import get_settings
 from backend.core.database import AsyncSessionLocal
