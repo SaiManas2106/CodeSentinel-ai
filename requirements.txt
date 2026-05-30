@@ -48,6 +48,6 @@ sentry-sdk==2.14.0
 python-dotenv==1.0.1
 structlog==24.4.0
 rich==13.8.1
-numpy==2.1.1
+numpy==1.26.4
 testcontainers==4.8.1
 trl==0.10.1
