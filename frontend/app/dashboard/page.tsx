@@ -2,9 +2,36 @@ import TrendChart from "@/components/charts/TrendChart";
 import DonutChart from "@/components/charts/DonutChart";
 import ScoreBadge from "@/components/ui/ScoreBadge";
 import { getDashboardStats, getReviews, getScoreTrends } from "@/lib/api";
+import type { DashboardStats, PaginatedResponse, Review, TrendData } from "@/lib/types";
+
+const emptyStats: DashboardStats = {
+  total_prs_reviewed: 0,
+  average_score: 0,
+  issues_found: 0,
+  time_saved_hours: 0
+};
+
+const emptyReviews: PaginatedResponse<Review> = {
+  items: [],
+  total: 0,
+  page: 1,
+  page_size: 10
+};
+
+async function withFallback<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise;
+  } catch {
+    return fallback;
+  }
+}
 
 export default async function DashboardPage(): Promise<JSX.Element> {
-  const [stats, reviews, trends] = await Promise.all([getDashboardStats(), getReviews(1, 10), getScoreTrends()]);
+  const [stats, reviews, trends] = await Promise.all([
+    withFallback(getDashboardStats(), emptyStats),
+    withFallback(getReviews(1, 10), emptyReviews),
+    withFallback<TrendData[]>(getScoreTrends(), [])
+  ]);
 
   const issueBreakdown = [
     { name: "Security", value: 18 },
