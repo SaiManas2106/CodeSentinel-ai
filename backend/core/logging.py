@@ -9,7 +9,6 @@ from contextvars import ContextVar
 from typing import Callable
 
 import structlog
-from fastapi import Request, Response
 
 from backend.core.config import Settings
 
