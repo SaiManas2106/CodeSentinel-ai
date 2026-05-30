@@ -8,7 +8,6 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-import httpx
 from celery import shared_task
 from redis.asyncio import Redis
 from sqlalchemy import select
