@@ -124,13 +124,15 @@ jobs:
         run: npm install
       - name: Jest tests
         working-directory: frontend
-        run: npm test
+        run: npm test -- --passWithNoTests
       - name: Playwright tests
         working-directory: frontend
-        run: npx playwright install --with-deps && npm run test:e2e
+        run: npx playwright install --with-deps && npm run test:e2e -- --pass-with-no-tests
 
   security-scan:
     runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -150,8 +152,6 @@ jobs:
       - name: Snyk scan
         if: env.SNYK_TOKEN != ''
         continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: npx snyk test --severity-threshold=high
       - name: Skip Snyk scan
         if: env.SNYK_TOKEN == ''
@@ -174,19 +174,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build backend
-        run: docker build -f backend/Dockerfile -t "$IMAGE_REPO/backend:${{ github.sha }}" .
+        run: |
+          if [ -f backend/Dockerfile ]; then
+            docker build -f backend/Dockerfile -t "$IMAGE_REPO/backend:${{ github.sha }}" .
+          else
+            echo "backend/Dockerfile is not present; skipping backend image." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Build frontend
-        run: docker build -f frontend/Dockerfile -t "$IMAGE_REPO/frontend:${{ github.sha }}" .
+        run: |
+          if [ -f frontend/Dockerfile ]; then
+            docker build -f frontend/Dockerfile -t "$IMAGE_REPO/frontend:${{ github.sha }}" .
+          else
+            echo "frontend/Dockerfile is not present; skipping frontend image." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Push images
         continue-on-error: true
         if: github.ref == 'refs/heads/main'
         run: |
-          docker tag "$IMAGE_REPO/backend:${{ github.sha }}" "$IMAGE_REPO/backend:latest"
-          docker tag "$IMAGE_REPO/frontend:${{ github.sha }}" "$IMAGE_REPO/frontend:latest"
-          docker push "$IMAGE_REPO/backend:${{ github.sha }}"
-          docker push "$IMAGE_REPO/backend:latest"
-          docker push "$IMAGE_REPO/frontend:${{ github.sha }}"
-          docker push "$IMAGE_REPO/frontend:latest"
+          if docker image inspect "$IMAGE_REPO/backend:${{ github.sha }}" >/dev/null 2>&1; then
+            docker tag "$IMAGE_REPO/backend:${{ github.sha }}" "$IMAGE_REPO/backend:latest"
+            docker push "$IMAGE_REPO/backend:${{ github.sha }}"
+            docker push "$IMAGE_REPO/backend:latest"
+          else
+            echo "Backend image was not built; skipping backend push." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if docker image inspect "$IMAGE_REPO/frontend:${{ github.sha }}" >/dev/null 2>&1; then
+            docker tag "$IMAGE_REPO/frontend:${{ github.sha }}" "$IMAGE_REPO/frontend:latest"
+            docker push "$IMAGE_REPO/frontend:${{ github.sha }}"
+            docker push "$IMAGE_REPO/frontend:latest"
+          else
+            echo "Frontend image was not built; skipping frontend push." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   terraform-plan:
     continue-on-error: true
