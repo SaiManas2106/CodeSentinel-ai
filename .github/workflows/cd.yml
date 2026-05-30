@@ -3,13 +3,52 @@ name: CD
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      can_deploy: ${{ steps.check.outputs.can_deploy }}
+    steps:
+      - name: Check deployment configuration
+        id: check
+        env:
+          AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+          APP_HOST: ${{ secrets.APP_HOST }}
+        run: |
+          missing=()
+
+          if [ -z "$AWS_OIDC_ROLE_ARN" ]; then
+            missing+=("AWS_OIDC_ROLE_ARN")
+          fi
+
+          if [ -z "$EKS_CLUSTER_NAME" ]; then
+            missing+=("EKS_CLUSTER_NAME")
+          fi
+
+          if [ -z "$APP_HOST" ]; then
+            missing+=("APP_HOST")
+          fi
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "can_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Deployment skipped because these secrets are not configured: ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "can_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Deployment configuration is present." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   terraform-apply:
+    needs: preflight
+    if: needs.preflight.outputs.can_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,16 +85,30 @@ jobs:
         run: curl -f https://${{ secrets.APP_HOST }}/health
 
   notify:
-    needs: [terraform-apply, deploy-eks, smoke-tests]
+    needs: [preflight, terraform-apply, deploy-eks, smoke-tests]
     if: always()
     runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
+      - name: Deployment summary
+        run: |
+          echo "Preflight: ${{ needs.preflight.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Terraform: ${{ needs.terraform-apply.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "EKS deploy: ${{ needs.deploy-eks.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Smoke tests: ${{ needs.smoke-tests.result }}" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Notify Slack
+        if: env.SLACK_WEBHOOK_URL != ''
         uses: slackapi/slack-github-action@v1.27.0
         with:
           payload: |
             {
-              "text": "CodeSentinel deployment status: ${{ job.status }}"
+              "text": "CodeSentinel deployment status: terraform=${{ needs.terraform-apply.result }}, deploy=${{ needs.deploy-eks.result }}, smoke=${{ needs.smoke-tests.result }}"
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+
+      - name: Skip Slack notification
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification." >> "$GITHUB_STEP_SUMMARY"
