@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+
 import pytest
 from redis.asyncio import Redis
 
@@ -32,7 +35,6 @@ def test_password_hashing() -> None:
 def test_webhook_signature_verification() -> None:
     payload = b'{"ping":true}'
     secret = "abc123"
-    import hmac, hashlib
 
     signature = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     assert verify_github_webhook_signature(payload, signature, secret=secret)
