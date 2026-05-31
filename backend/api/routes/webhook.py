@@ -25,7 +25,9 @@ async def github_webhook(request: Request) -> dict[str, str]:
     event = request.headers.get("X-GitHub-Event", "unknown")
 
     if not verify_github_webhook_signature(payload_bytes, signature):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature"
+        )
 
     body: dict[str, Any] = json.loads(payload_bytes.decode("utf-8"))
     action = body.get("action", "")
@@ -36,7 +38,11 @@ async def github_webhook(request: Request) -> dict[str, str]:
         return {"status": "ok", "message": "pong"}
 
     if event == "installation" and action in {"created", "deleted"}:
-        logger.info("webhook.installation", action=action, installation=body.get("installation", {}).get("id"))
+        logger.info(
+            "webhook.installation",
+            action=action,
+            installation=body.get("installation", {}).get("id"),
+        )
 
     if event == "pull_request" and action in {"opened", "synchronize", "reopened"}:
         producer: AIOKafkaProducer = request.app.state.kafka_producer
@@ -48,6 +54,8 @@ async def github_webhook(request: Request) -> dict[str, str]:
             "installation": body.get("installation", {}),
             "received_at": datetime.now(UTC).isoformat(),
         }
-        await producer.send_and_wait(settings.kafka.pr_review_topic, json.dumps(message).encode("utf-8"))
+        await producer.send_and_wait(
+            settings.kafka.pr_review_topic, json.dumps(message).encode("utf-8")
+        )
 
     return {"status": "accepted"}

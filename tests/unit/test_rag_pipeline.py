@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.rag.pipeline import CodeChunker, EmbeddingService, QdrantService, RAGPipeline
+from backend.rag.pipeline import (
+    CodeChunker,
+    EmbeddingService,
+    QdrantService,
+    RAGPipeline,
+)
 
 
 def test_code_chunker_python_and_js() -> None:
@@ -27,8 +32,12 @@ async def test_embedding_service_mocked_model(monkeypatch: pytest.MonkeyPatch) -
     redis.get = AsyncMock(return_value=None)
     redis.setex = AsyncMock()
 
-    monkeypatch.setattr("backend.rag.pipeline.AutoTokenizer.from_pretrained", lambda _: AsyncMock())
-    monkeypatch.setattr("backend.rag.pipeline.AutoModel.from_pretrained", lambda _: AsyncMock())
+    monkeypatch.setattr(
+        "backend.rag.pipeline.AutoTokenizer.from_pretrained", lambda _: AsyncMock()
+    )
+    monkeypatch.setattr(
+        "backend.rag.pipeline.AutoModel.from_pretrained", lambda _: AsyncMock()
+    )
 
     service = EmbeddingService(redis_client=redis)
     service._embed_batch_codebert = AsyncMock(return_value=[[0.1] * 768])
@@ -52,8 +61,12 @@ async def test_rag_pipeline_retrieve(monkeypatch: pytest.MonkeyPatch) -> None:
 
     pipeline = RAGPipeline(redis_client=redis, qdrant_client=qdrant)
     pipeline.embedding.embed = AsyncMock(return_value=[[0.1] * 768])
-    pipeline.qdrant.hybrid_search = AsyncMock(return_value=[{"text": "ctx", "score": 0.8}])
-    pipeline.reranker.rerank = AsyncMock(return_value=[{"text": "ctx", "rerank_score": 0.9}])
+    pipeline.qdrant.hybrid_search = AsyncMock(
+        return_value=[{"text": "ctx", "score": 0.8}]
+    )
+    pipeline.reranker.rerank = AsyncMock(
+        return_value=[{"text": "ctx", "rerank_score": 0.9}]
+    )
 
     result = await pipeline.retrieve("query", "repo-1", top_k=5)
     assert len(result) == 1

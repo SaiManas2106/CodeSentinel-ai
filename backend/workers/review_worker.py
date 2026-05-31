@@ -25,11 +25,16 @@ settings = get_settings()
 logger = get_logger(__name__)
 
 
-async def _post_github_review_comment(repo_full_name: str, pr_number: int, github_token: str, review_text: str) -> None:
+async def _post_github_review_comment(
+    repo_full_name: str, pr_number: int, github_token: str, review_text: str
+) -> None:
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
             f"https://api.github.com/repos/{repo_full_name}/issues/{pr_number}/comments",
-            headers={"Authorization": f"Bearer {github_token}", "Accept": "application/vnd.github+json"},
+            headers={
+                "Authorization": f"Bearer {github_token}",
+                "Accept": "application/vnd.github+json",
+            },
             json={"body": review_text},
         )
         response.raise_for_status()
@@ -42,7 +47,11 @@ async def process_pr_review(event: dict[str, Any]) -> None:
 
     async with AsyncSessionLocal() as db:
         review_id = event.get("review_id")
-        review = await db.scalar(select(Review).where(Review.id == review_id)) if review_id else None
+        review = (
+            await db.scalar(select(Review).where(Review.id == review_id))
+            if review_id
+            else None
+        )
         if review:
             review.status = ReviewStatus.PROCESSING
             await db.commit()
@@ -54,13 +63,19 @@ async def process_pr_review(event: dict[str, Any]) -> None:
             token = event.get("github_access_token", "")
 
             async with httpx.AsyncClient(timeout=30.0) as client:
-                diff_resp = await client.get(diff_url, headers={"Authorization": f"Bearer {token}"})
+                diff_resp = await client.get(
+                    diff_url, headers={"Authorization": f"Bearer {token}"}
+                )
                 diff_resp.raise_for_status()
                 diff_text = diff_resp.text
 
             from qdrant_client import AsyncQdrantClient
 
-            qdrant = AsyncQdrantClient(host=settings.qdrant.host, port=settings.qdrant.port, api_key=settings.qdrant.api_key or None)
+            qdrant = AsyncQdrantClient(
+                host=settings.qdrant.host,
+                port=settings.qdrant.port,
+                api_key=settings.qdrant.api_key or None,
+            )
             rag = RAGPipeline(redis_client=redis_client, qdrant_client=qdrant)
             orchestrator = ReviewOrchestrator(rag)
 
@@ -87,15 +102,22 @@ async def process_pr_review(event: dict[str, Any]) -> None:
                 review.quality_score = float(final.get("quality_score", 0))
                 review.issues = final.get("issues", [])
                 review.suggestions = final.get("suggestions", [])
-                review.model_used = final.get("model_used", settings.openai.openai_model)
+                review.model_used = final.get(
+                    "model_used", settings.openai.openai_model
+                )
                 review.tokens_used = int(final.get("tokens_used", 0))
                 review.processing_time_ms = elapsed_ms
                 review.completed_at = datetime.now(UTC)
                 await db.commit()
 
             comment = f"## CodeSentinel AI Review\n\nScore: {final.get('overall_score', 0)}\n\n{final.get('summary', 'No summary')}"
-            await _post_github_review_comment(repo["full_name"], int(pr["number"]), token, comment)
-            await redis_client.publish("notifications", json.dumps({"type": "review_completed", "pr": pr.get("number")}))
+            await _post_github_review_comment(
+                repo["full_name"], int(pr["number"]), token, comment
+            )
+            await redis_client.publish(
+                "notifications",
+                json.dumps({"type": "review_completed", "pr": pr.get("number")}),
+            )
 
             logger.info("review.processed", pr=pr.get("number"), elapsed_ms=elapsed_ms)
         except Exception as exc:

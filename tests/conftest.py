@@ -26,7 +26,9 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
 
 @pytest_asyncio.fixture
 async def async_client() -> AsyncGenerator[AsyncClient, None]:
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
         yield client
 
 
@@ -41,7 +43,12 @@ async def redis_client() -> AsyncGenerator[Redis, None]:
 def mock_github_api(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     data = {
         "token": "gho_test",
-        "user": {"id": 123, "login": "tester", "email": "tester@example.com", "avatar_url": "https://example.com/avatar.png"},
+        "user": {
+            "id": 123,
+            "login": "tester",
+            "email": "tester@example.com",
+            "avatar_url": "https://example.com/avatar.png",
+        },
     }
     return data
 

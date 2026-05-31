@@ -35,23 +35,31 @@ def _create_token(subject: str, token_type: str, expires_delta: timedelta) -> st
         "iat": int(now.timestamp()),
         "exp": int((now + expires_delta).timestamp()),
     }
-    return jwt.encode(payload, settings.jwt.secret_key, algorithm=settings.jwt.algorithm)
+    return jwt.encode(
+        payload, settings.jwt.secret_key, algorithm=settings.jwt.algorithm
+    )
 
 
 def create_access_token(subject: str) -> str:
     """Create signed access token."""
-    return _create_token(subject, "access", timedelta(minutes=settings.jwt.access_token_expire_minutes))
+    return _create_token(
+        subject, "access", timedelta(minutes=settings.jwt.access_token_expire_minutes)
+    )
 
 
 def create_refresh_token(subject: str) -> str:
     """Create signed refresh token."""
-    return _create_token(subject, "refresh", timedelta(days=settings.jwt.refresh_token_expire_days))
+    return _create_token(
+        subject, "refresh", timedelta(days=settings.jwt.refresh_token_expire_days)
+    )
 
 
 def decode_token(token: str) -> dict[str, Any]:
     """Decode and verify JWT token."""
     try:
-        return jwt.decode(token, settings.jwt.secret_key, algorithms=[settings.jwt.algorithm])
+        return jwt.decode(
+            token, settings.jwt.secret_key, algorithms=[settings.jwt.algorithm]
+        )
     except JWTError as exc:
         raise ValueError("Invalid token") from exc
 
@@ -81,7 +89,9 @@ def generate_github_app_jwt() -> str:
     return jwt.encode(payload, settings.github.app_private_key, algorithm="RS256")
 
 
-def verify_github_webhook_signature(payload: bytes, signature_header: str, secret: str | None = None) -> bool:
+def verify_github_webhook_signature(
+    payload: bytes, signature_header: str, secret: str | None = None
+) -> bool:
     """Verify GitHub webhook HMAC SHA-256 signature."""
     webhook_secret = (secret or settings.github.webhook_secret).encode("utf-8")
     expected = "sha256=" + hmac.new(webhook_secret, payload, hashlib.sha256).hexdigest()

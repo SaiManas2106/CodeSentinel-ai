@@ -36,7 +36,9 @@ def test_webhook_signature_verification() -> None:
     payload = b'{"ping":true}'
     secret = "abc123"
 
-    signature = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    signature = (
+        "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    )
     assert verify_github_webhook_signature(payload, signature, secret=secret)
 
 

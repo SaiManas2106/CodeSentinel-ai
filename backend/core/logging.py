@@ -28,7 +28,9 @@ class RequestContextMiddleware:
             return
 
         request_id = str(uuid.uuid4())
-        headers = {k.decode("utf-8"): v.decode("utf-8") for k, v in scope.get("headers", [])}
+        headers = {
+            k.decode("utf-8"): v.decode("utf-8") for k, v in scope.get("headers", [])
+        }
         correlation_id = headers.get("x-correlation-id", request_id)
 
         request_id_context.set(request_id)
@@ -38,7 +40,9 @@ class RequestContextMiddleware:
             if message.get("type") == "http.response.start":
                 headers_list = message.setdefault("headers", [])
                 headers_list.append((b"x-request-id", request_id.encode("utf-8")))
-                headers_list.append((b"x-correlation-id", correlation_id.encode("utf-8")))
+                headers_list.append(
+                    (b"x-correlation-id", correlation_id.encode("utf-8"))
+                )
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
@@ -52,7 +56,11 @@ def _add_context(_: object, __: str, event_dict: dict) -> dict:
 
 def configure_logging(settings: Settings) -> None:
     """Configure stdlib and structlog."""
-    logging.basicConfig(stream=sys.stdout, level=getattr(logging, settings.log_level, logging.INFO), format="%(message)s")
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=getattr(logging, settings.log_level, logging.INFO),
+        format="%(message)s",
+    )
 
     processors: list[Callable] = [
         structlog.contextvars.merge_contextvars,

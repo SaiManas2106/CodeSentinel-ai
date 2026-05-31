@@ -52,5 +52,7 @@ async def test_agent_retry_error_handling() -> None:
     orchestrator = ReviewOrchestrator(rag)
     orchestrator._invoke_json = AsyncMock(side_effect=RuntimeError("LLM timeout"))
 
-    result = await orchestrator.run({"pr_diff": "x", "pr_metadata": {"repository_id": "1"}, "metadata": {}})
+    result = await orchestrator.run(
+        {"pr_diff": "x", "pr_metadata": {"repository_id": "1"}, "metadata": {}}
+    )
     assert "error" in result

@@ -83,10 +83,14 @@ class OpenAISettings(BaseSettings):
 
     openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
     openai_model: str = Field("gpt-4o", alias="OPENAI_MODEL")
-    embedding_model: str = Field("text-embedding-3-large", alias="OPENAI_EMBEDDING_MODEL")
+    embedding_model: str = Field(
+        "text-embedding-3-large", alias="OPENAI_EMBEDDING_MODEL"
+    )
     cohere_api_key: str = Field(..., alias="COHERE_API_KEY")
     huggingface_token: str = Field(..., alias="HUGGINGFACE_TOKEN")
-    codebert_model_name: str = Field("microsoft/codebert-base", alias="CODEBERT_MODEL_NAME")
+    codebert_model_name: str = Field(
+        "microsoft/codebert-base", alias="CODEBERT_MODEL_NAME"
+    )
 
     model_config = SettingsConfigDict(extra="ignore")
 
@@ -128,8 +132,12 @@ class JWTSettings(BaseSettings):
     """JWT settings."""
 
     secret_key: str = Field(..., alias="JWT_SECRET_KEY")
-    algorithm: Literal["HS256", "HS384", "HS512"] = Field("HS256", alias="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(30, alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
+    algorithm: Literal["HS256", "HS384", "HS512"] = Field(
+        "HS256", alias="JWT_ALGORITHM"
+    )
+    access_token_expire_minutes: int = Field(
+        30, alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
     refresh_token_expire_days: int = Field(14, alias="JWT_REFRESH_TOKEN_EXPIRE_DAYS")
 
     model_config = SettingsConfigDict(extra="ignore")
@@ -139,7 +147,9 @@ class Settings(BaseSettings):
     """Top-level settings."""
 
     app_name: str = Field("CodeSentinel AI", alias="APP_NAME")
-    app_env: Literal["development", "staging", "production"] = Field("development", alias="APP_ENV")
+    app_env: Literal["development", "staging", "production"] = Field(
+        "development", alias="APP_ENV"
+    )
     app_host: str = Field("0.0.0.0", alias="APP_HOST")
     app_port: int = Field(8000, alias="APP_PORT")
     api_v1_prefix: str = Field("/api/v1", alias="API_V1_PREFIX")
@@ -160,7 +170,9 @@ class Settings(BaseSettings):
     sentry: SentrySettings = Field(default_factory=SentrySettings)
     jwt: JWTSettings = Field(default_factory=JWTSettings)
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     @field_validator("log_level")
     @classmethod
@@ -183,7 +195,9 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         """Return parsed CORS origins."""
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return [
+            origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ]
 
 
 @lru_cache(maxsize=1)

@@ -19,7 +19,11 @@ async def _timed_check(name: str, check_fn) -> dict[str, str | float]:
     start = time.perf_counter()
     ok = await check_fn()
     duration_ms = round((time.perf_counter() - start) * 1000, 2)
-    return {"service": name, "status": "healthy" if ok else "unhealthy", "response_time_ms": duration_ms}
+    return {
+        "service": name,
+        "status": "healthy" if ok else "unhealthy",
+        "response_time_ms": duration_ms,
+    }
 
 
 @router.get("/health")

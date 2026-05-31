@@ -59,7 +59,18 @@ class CodeChunker:
         boundaries: list[int] = [0]
         for i, line in enumerate(lines):
             s = line.strip()
-            if s.startswith(("def ", "class ", "function ", "export function", "interface ", "type ", "public ", "private ")):
+            if s.startswith(
+                (
+                    "def ",
+                    "class ",
+                    "function ",
+                    "export function",
+                    "interface ",
+                    "type ",
+                    "public ",
+                    "private ",
+                )
+            ):
                 boundaries.append(i)
         boundaries.append(len(lines))
         boundaries = sorted(set(boundaries))
@@ -89,12 +100,16 @@ class EmbeddingService:
     def __init__(self, redis_client: Redis, batch_size: int = 32):
         self.redis = redis_client
         self.batch_size = batch_size
-        self.tokenizer = AutoTokenizer.from_pretrained(settings.openai.codebert_model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            settings.openai.codebert_model_name
+        )
         self.model = AutoModel.from_pretrained(settings.openai.codebert_model_name)
         self.openai = AsyncOpenAI(api_key=settings.openai.openai_api_key)
 
     async def _embed_batch_codebert(self, texts: list[str]) -> list[list[float]]:
-        inputs = self.tokenizer(texts, truncation=True, padding=True, return_tensors="pt", max_length=512)
+        inputs = self.tokenizer(
+            texts, truncation=True, padding=True, return_tensors="pt", max_length=512
+        )
         with np.errstate(all="ignore"):
             outputs = self.model(**inputs)
             cls = outputs.last_hidden_state[:, 0, :].detach().numpy()
@@ -118,9 +133,15 @@ class EmbeddingService:
             if code:
                 new_vectors = []
                 for start in range(0, len(miss_texts), self.batch_size):
-                    new_vectors.extend(await self._embed_batch_codebert(miss_texts[start : start + self.batch_size]))
+                    new_vectors.extend(
+                        await self._embed_batch_codebert(
+                            miss_texts[start : start + self.batch_size]
+                        )
+                    )
             else:
-                response = await self.openai.embeddings.create(model=settings.openai.embedding_model, input=miss_texts)
+                response = await self.openai.embeddings.create(
+                    model=settings.openai.embedding_model, input=miss_texts
+                )
                 new_vectors = [item.embedding for item in response.data]
 
             for (idx, text), vector in zip(misses, new_vectors, strict=False):
@@ -151,7 +172,9 @@ class QdrantService:
                 sparse_vectors_config={"bm25": SparseVectorParams()},
             )
 
-    async def upsert_chunks(self, repo_id: str, chunks: list[Chunk], vectors: list[list[float]]) -> None:
+    async def upsert_chunks(
+        self, repo_id: str, chunks: list[Chunk], vectors: list[list[float]]
+    ) -> None:
         points: list[PointStruct] = []
         for chunk, vector in zip(chunks, vectors, strict=False):
             token_counts: dict[int, float] = {}
@@ -159,10 +182,16 @@ class QdrantService:
                 token_idx = abs(hash(token)) % 20000
                 token_counts[token_idx] = token_counts.get(token_idx, 0.0) + 1.0
 
-            sparse = SparseVector(indices=list(token_counts.keys()), values=list(token_counts.values()))
+            sparse = SparseVector(
+                indices=list(token_counts.keys()), values=list(token_counts.values())
+            )
             points.append(
                 PointStruct(
-                    id=abs(hash(f"{repo_id}:{chunk.file_path}:{chunk.start_line}:{chunk.end_line}")),
+                    id=abs(
+                        hash(
+                            f"{repo_id}:{chunk.file_path}:{chunk.start_line}:{chunk.end_line}"
+                        )
+                    ),
                     vector={"": vector, "bm25": sparse},
                     payload={
                         "repo_id": repo_id,
@@ -193,23 +222,37 @@ class QdrantService:
 
         filters = [FieldCondition(key="repo_id", match=MatchValue(value=repo_id))]
         if language:
-            filters.append(FieldCondition(key="language", match=MatchValue(value=language)))
+            filters.append(
+                FieldCondition(key="language", match=MatchValue(value=language))
+            )
         if file_path:
-            filters.append(FieldCondition(key="file_path", match=MatchValue(value=file_path)))
+            filters.append(
+                FieldCondition(key="file_path", match=MatchValue(value=file_path))
+            )
 
         results = await self.client.query_points(
             collection_name=self.collection,
-            query={"": dense_vector, "bm25": SparseVector(indices=list(token_counts.keys()), values=list(token_counts.values()))},
+            query={
+                "": dense_vector,
+                "bm25": SparseVector(
+                    indices=list(token_counts.keys()),
+                    values=list(token_counts.values()),
+                ),
+            },
             limit=top_k,
             with_payload=True,
             query_filter=Filter(must=filters),
         )
-        return [{"score": point.score, **(point.payload or {})} for point in results.points]
+        return [
+            {"score": point.score, **(point.payload or {})} for point in results.points
+        ]
 
     async def delete_repository(self, repo_id: str) -> None:
         await self.client.delete(
             collection_name=self.collection,
-            points_selector=Filter(must=[FieldCondition(key="repo_id", match=MatchValue(value=repo_id))]),
+            points_selector=Filter(
+                must=[FieldCondition(key="repo_id", match=MatchValue(value=repo_id))]
+            ),
         )
 
 
@@ -219,10 +262,16 @@ class Reranker:
     def __init__(self) -> None:
         self.client = cohere.AsyncClient(api_key=settings.openai.cohere_api_key)
 
-    async def rerank(self, query: str, docs: list[dict[str, Any]], top_n: int = 5) -> list[dict[str, Any]]:
+    async def rerank(
+        self, query: str, docs: list[dict[str, Any]], top_n: int = 5
+    ) -> list[dict[str, Any]]:
         if not docs:
             return []
-        response = await self.client.rerank(query=query, documents=[d.get("text", "") for d in docs], top_n=min(20, len(docs)))
+        response = await self.client.rerank(
+            query=query,
+            documents=[d.get("text", "") for d in docs],
+            top_n=min(20, len(docs)),
+        )
         ordered = []
         for result in response.results[:top_n]:
             doc = docs[result.index]
@@ -239,32 +288,56 @@ class RAGPipeline:
         self.embedding = EmbeddingService(redis_client=redis_client)
         self.qdrant = QdrantService(client=qdrant_client)
         self.reranker = Reranker()
-        self.metrics: dict[str, float | int | list[float]] = {"latency_ms": 0.0, "num_chunks": 0, "retrieval_scores": []}
+        self.metrics: dict[str, float | int | list[float]] = {
+            "latency_ms": 0.0,
+            "num_chunks": 0,
+            "retrieval_scores": [],
+        }
 
-    async def ingest_repository(self, repo_path: str, repo_id: str) -> dict[str, int | float]:
+    async def ingest_repository(
+        self, repo_path: str, repo_id: str
+    ) -> dict[str, int | float]:
         start = time.perf_counter()
         await self.qdrant.ensure_collection()
-        files = [p for p in Path(repo_path).rglob("*") if p.is_file() and p.suffix in LANG_EXT]
+        files = [
+            p
+            for p in Path(repo_path).rglob("*")
+            if p.is_file() and p.suffix in LANG_EXT
+        ]
         all_chunks: list[Chunk] = []
         for file_path in files:
             text = file_path.read_text(encoding="utf-8", errors="ignore")
             all_chunks.extend(self.chunker.chunk_code(str(file_path), text))
 
         vectors = await self.embedding.embed([c.text for c in all_chunks], code=True)
-        await self.qdrant.upsert_chunks(repo_id=repo_id, chunks=all_chunks, vectors=vectors)
+        await self.qdrant.upsert_chunks(
+            repo_id=repo_id, chunks=all_chunks, vectors=vectors
+        )
 
         self.metrics["latency_ms"] = round((time.perf_counter() - start) * 1000, 2)
         self.metrics["num_chunks"] = len(all_chunks)
-        return {"latency_ms": float(self.metrics["latency_ms"]), "num_chunks": int(self.metrics["num_chunks"])}
+        return {
+            "latency_ms": float(self.metrics["latency_ms"]),
+            "num_chunks": int(self.metrics["num_chunks"]),
+        }
 
-    async def retrieve(self, query: str, repo_id: str, top_k: int = 5) -> list[dict[str, Any]]:
+    async def retrieve(
+        self, query: str, repo_id: str, top_k: int = 5
+    ) -> list[dict[str, Any]]:
         start = time.perf_counter()
         [dense] = await self.embedding.embed([query], code=False)
-        initial = await self.qdrant.hybrid_search(repo_id=repo_id, dense_vector=dense, query_terms=query.lower().split(), top_k=20)
+        initial = await self.qdrant.hybrid_search(
+            repo_id=repo_id,
+            dense_vector=dense,
+            query_terms=query.lower().split(),
+            top_k=20,
+        )
         reranked = await self.reranker.rerank(query=query, docs=initial, top_n=top_k)
 
         self.metrics["latency_ms"] = round((time.perf_counter() - start) * 1000, 2)
-        self.metrics["retrieval_scores"] = [float(d.get("rerank_score", d.get("score", 0.0))) for d in reranked]
+        self.metrics["retrieval_scores"] = [
+            float(d.get("rerank_score", d.get("score", 0.0))) for d in reranked
+        ]
         logger.info("rag.retrieve", latency_ms=self.metrics["latency_ms"], top_k=top_k)
         return reranked
 

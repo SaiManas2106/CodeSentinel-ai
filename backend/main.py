@@ -23,7 +23,11 @@ configure_logging(settings)
 logger = get_logger(__name__)
 
 if settings.sentry.dsn:
-    sentry_sdk.init(dsn=settings.sentry.dsn, traces_sample_rate=settings.sentry.traces_sample_rate, environment=settings.app_env)
+    sentry_sdk.init(
+        dsn=settings.sentry.dsn,
+        traces_sample_rate=settings.sentry.traces_sample_rate,
+        environment=settings.app_env,
+    )
 
 
 @asynccontextmanager
@@ -33,7 +37,11 @@ async def lifespan(app: FastAPI):
     await register_pgvector_extension()
 
     app.state.redis = Redis.from_url(settings.redis.url, decode_responses=False)
-    app.state.qdrant = AsyncQdrantClient(host=settings.qdrant.host, port=settings.qdrant.port, api_key=settings.qdrant.api_key or None)
+    app.state.qdrant = AsyncQdrantClient(
+        host=settings.qdrant.host,
+        port=settings.qdrant.port,
+        api_key=settings.qdrant.api_key or None,
+    )
     app.state.mongo = AsyncIOMotorClient(settings.mongo.uri)
 
     producer = AIOKafkaProducer(bootstrap_servers=settings.kafka.bootstrap_servers)
@@ -48,7 +56,12 @@ async def lifespan(app: FastAPI):
     app.state.mongo.close()
 
 
-app = FastAPI(title=settings.app_name, docs_url="/docs", openapi_url="/openapi.json", lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,

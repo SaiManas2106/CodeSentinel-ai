@@ -1,4 +1,5 @@
 """SQLAlchemy models."""
+
 from backend.api.models.user import User
 from backend.api.models.repository import Repository
 from backend.api.models.pull_request import PullRequest

@@ -68,7 +68,9 @@ Return JSON:
 """.strip()
 
 
-def aggregator_prompt(review_output: dict, security_output: dict, standards_output: dict) -> str:
+def aggregator_prompt(
+    review_output: dict, security_output: dict, standards_output: dict
+) -> str:
     """Build aggregation prompt."""
     return f"""
 You are the final review aggregator.

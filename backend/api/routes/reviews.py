@@ -54,11 +54,20 @@ async def list_reviews(
 
     reviews = (await db.execute(query)).scalars().all()
     total = int((await db.execute(count_query)).scalar_one())
-    return ReviewListResponse(items=[ReviewSummary.model_validate(r) for r in reviews], total=total, page=page, page_size=page_size)
+    return ReviewListResponse(
+        items=[ReviewSummary.model_validate(r) for r in reviews],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/reviews/{review_id}", response_model=ReviewResponse)
-async def get_review(review_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> ReviewResponse:
+async def get_review(
+    review_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ReviewResponse:
     review = await db.scalar(
         select(Review)
         .join(PullRequest, Review.pull_request_id == PullRequest.id)
@@ -71,7 +80,13 @@ async def get_review(review_id: uuid.UUID, db: AsyncSession = Depends(get_db), c
 
 
 @router.get("/repositories/{repo_id}/reviews", response_model=ReviewListResponse)
-async def repo_reviews(repo_id: uuid.UUID, page: int = 1, page_size: int = 20, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> ReviewListResponse:
+async def repo_reviews(
+    repo_id: uuid.UUID,
+    page: int = 1,
+    page_size: int = 20,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ReviewListResponse:
     query = (
         select(Review)
         .join(PullRequest, PullRequest.id == Review.pull_request_id)
@@ -92,11 +107,20 @@ async def repo_reviews(repo_id: uuid.UUID, page: int = 1, page_size: int = 20, d
             )
         ).scalar_one()
     )
-    return ReviewListResponse(items=[ReviewSummary.model_validate(r) for r in reviews], total=total, page=page, page_size=page_size)
+    return ReviewListResponse(
+        items=[ReviewSummary.model_validate(r) for r in reviews],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("/reviews/{review_id}/retry")
-async def retry_review(review_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict[str, str]:
+async def retry_review(
+    review_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
     review = await db.scalar(
         select(Review)
         .join(PullRequest, Review.pull_request_id == PullRequest.id)
@@ -111,7 +135,9 @@ async def retry_review(review_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 
 @router.get("/reviews/stats/summary")
-async def review_stats(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)) -> dict[str, float | int]:
+async def review_stats(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+) -> dict[str, float | int]:
     base = (
         select(Review)
         .join(PullRequest, Review.pull_request_id == PullRequest.id)

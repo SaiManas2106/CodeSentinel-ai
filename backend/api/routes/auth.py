@@ -31,7 +31,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 
-async def _rate_limit(redis_client: Redis, key: str, limit: int = 10, window_seconds: int = 900) -> None:
+async def _rate_limit(
+    redis_client: Redis, key: str, limit: int = 10, window_seconds: int = 900
+) -> None:
     now = int(datetime.now(UTC).timestamp())
     window_start = now - window_seconds
     pipe = redis_client.pipeline()
@@ -41,7 +43,9 @@ async def _rate_limit(redis_client: Redis, key: str, limit: int = 10, window_sec
     pipe.zcard(key)
     _, _, _, count = await pipe.execute()
     if int(count) > limit:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded"
+        )
 
 
 async def _audit(
@@ -64,19 +68,27 @@ async def _audit(
     await db.commit()
 
 
-async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
+async def get_current_user(
+    request: Request, db: AsyncSession = Depends(get_db)
+) -> User:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token"
+        )
 
     token = auth_header.split(" ", maxsplit=1)[1]
     payload = decode_token(token)
     if payload.get("type") != "access":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type"
+        )
 
     user = await db.scalar(select(User).where(User.id == uuid.UUID(payload["sub"])))
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
     return user
 
 
@@ -92,9 +104,14 @@ async def github_login() -> RedirectResponse:
 
 
 @router.get("/github/callback", response_model=TokenPair)
-async def github_callback(code: str, request: Request, db: AsyncSession = Depends(get_db)) -> TokenPair:
+async def github_callback(
+    code: str, request: Request, db: AsyncSession = Depends(get_db)
+) -> TokenPair:
     redis_client: Redis = request.app.state.redis
-    await _rate_limit(redis_client, f"auth:github:{request.client.host if request.client else 'unknown'}")
+    await _rate_limit(
+        redis_client,
+        f"auth:github:{request.client.host if request.client else 'unknown'}",
+    )
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         token_resp = await client.post(
@@ -111,11 +128,17 @@ async def github_callback(code: str, request: Request, db: AsyncSession = Depend
         token_data = token_resp.json()
         access_token = token_data.get("access_token")
         if not access_token:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="GitHub token exchange failed")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="GitHub token exchange failed",
+            )
 
         user_resp = await client.get(
             "https://api.github.com/user",
-            headers={"Authorization": f"Bearer {access_token}", "Accept": "application/vnd.github+json"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github+json",
+            },
         )
         user_resp.raise_for_status()
         gh_user = user_resp.json()
@@ -129,7 +152,8 @@ async def github_callback(code: str, request: Request, db: AsyncSession = Depend
     else:
         random_password = hash_password(uuid.uuid4().hex + uuid.uuid4().hex)
         user = User(
-            email=gh_user.get("email") or f"{gh_user['login']}@users.noreply.github.com",
+            email=gh_user.get("email")
+            or f"{gh_user['login']}@users.noreply.github.com",
             username=gh_user["login"],
             hashed_password=random_password,
             github_id=str(gh_user["id"]),
@@ -145,31 +169,50 @@ async def github_callback(code: str, request: Request, db: AsyncSession = Depend
     await db.refresh(user)
     await _audit(db, "github_oauth_callback", request, user_id=user.id)
 
-    return TokenPair(access_token=create_access_token(str(user.id)), refresh_token=create_refresh_token(str(user.id)))
+    return TokenPair(
+        access_token=create_access_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id)),
+    )
 
 
 @router.post("/refresh", response_model=TokenPair)
-async def refresh_token(payload: TokenRefresh, request: Request, db: AsyncSession = Depends(get_db)) -> TokenPair:
+async def refresh_token(
+    payload: TokenRefresh, request: Request, db: AsyncSession = Depends(get_db)
+) -> TokenPair:
     redis_client: Redis = request.app.state.redis
-    await _rate_limit(redis_client, f"auth:refresh:{request.client.host if request.client else 'unknown'}")
+    await _rate_limit(
+        redis_client,
+        f"auth:refresh:{request.client.host if request.client else 'unknown'}",
+    )
     if await is_token_blacklisted(redis_client, payload.refresh_token):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token blacklisted")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token blacklisted"
+        )
 
     decoded = decode_token(payload.refresh_token)
     if decoded.get("type") != "refresh":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
 
     user_id = decoded["sub"]
     user = await db.scalar(select(User).where(User.id == uuid.UUID(user_id)))
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
 
     await _audit(db, "token_refresh", request, user_id=user.id)
-    return TokenPair(access_token=create_access_token(user_id), refresh_token=create_refresh_token(user_id))
+    return TokenPair(
+        access_token=create_access_token(user_id),
+        refresh_token=create_refresh_token(user_id),
+    )
 
 
 @router.post("/logout")
-async def logout(payload: TokenRefresh, request: Request, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+async def logout(
+    payload: TokenRefresh, request: Request, db: AsyncSession = Depends(get_db)
+) -> dict[str, str]:
     redis_client: Redis = request.app.state.redis
     await blacklist_token(redis_client, payload.refresh_token)
     decoded = decode_token(payload.refresh_token)
@@ -179,7 +222,11 @@ async def logout(payload: TokenRefresh, request: Request, db: AsyncSession = Dep
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user), request: Request = None, db: AsyncSession = Depends(get_db)) -> UserResponse:
+async def me(
+    current_user: User = Depends(get_current_user),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
     if request is not None:
         await _audit(db, "me", request, user_id=current_user.id)
     return UserResponse.model_validate(current_user)
